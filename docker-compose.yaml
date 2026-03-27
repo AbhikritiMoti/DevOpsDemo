@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  web:
+    image: pythonapp:v1
+    build: .
+    ports:
+      - "9010:8000"
+  redis:
+    image: redis:alpine
