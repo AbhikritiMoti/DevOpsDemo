@@ -8,7 +8,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                     git branch: 'main',
-                    url: 'git@github.com:ManjuSKM/devOpsonAWSTraining.git',
+                    url: 'git@github.com:AbhikritiMoti/DevOpsDemo.git',
                     credentialsId: 'github-ssh'
             }
         }
