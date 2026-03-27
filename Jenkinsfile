@@ -1,5 +1,5 @@
 pipeline {
-  agent {label 'vishwa-kube'}
+  agent {label 'docker'}
 
   triggers {
     pollSCM('H/2 * * * *')
