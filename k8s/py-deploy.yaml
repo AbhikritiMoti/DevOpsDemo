@@ -20,6 +20,7 @@ spec:
       containers:
         - name: python-container-cm
           image: __IMAGE__
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           envFrom:
