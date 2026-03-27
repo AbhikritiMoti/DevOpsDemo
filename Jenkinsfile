@@ -81,5 +81,13 @@ pipeline {
                sh "curl 192.168.49.2:30115"
             }
         }
+        stage('Cleanup old containers') {
+        steps {
+        sh '''
+            docker-compose down || true
+            sudo docker rm -f git-pp02_web_1 git-pp02_redis_1 git-pp022_web_1 git-pp022_redis_1 || true
+        '''
+    }
+}
     }
 }
