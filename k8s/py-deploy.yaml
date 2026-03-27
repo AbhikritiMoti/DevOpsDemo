@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: python-container-cm
-          image: vishwacloudlab/pythonapp:v4-var
+          image: __IMAGE__
           ports:
             - containerPort: 8000
           envFrom:
@@ -28,8 +28,3 @@ spec:
           resources:
             requests:
               cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
-              memory: "256Mi"
-
