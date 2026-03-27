@@ -108,6 +108,14 @@ pipeline {
             }
         }
 
+        stage('Load image into Minikube') {
+            steps {
+                sh '''
+                    minikube image load ${LOCAL_IMAGE}
+                '''
+            }
+        }
+
         stage('Deploy kube files') {
             steps {
                 sh '''
@@ -121,10 +129,14 @@ pipeline {
                     test -f k8s/py-deploy.yaml
                     test -f k8s/py-service.yaml
 
-                    sed "s|__IMAGE__|${FULL_IMAGE}|g" k8s/py-deploy.yaml | kubectl apply -f -
                     kubectl apply -f k8s/configmap.yaml
+
+                    kubectl delete deployment redis-deploy-cm --ignore-not-found=true
                     kubectl apply -f k8s/redis-deploy.yaml
                     kubectl apply -f k8s/redis-service.yaml
+
+                    kubectl delete deployment py-deploy-cm --ignore-not-found=true
+                    sed "s|__IMAGE__|${LOCAL_IMAGE}|g" k8s/py-deploy.yaml | kubectl apply -f -
                     kubectl apply -f k8s/py-service.yaml
                 '''
             }
@@ -135,6 +147,7 @@ pipeline {
                 sh '''
                     kubectl get pods -o wide
                     kubectl get svc
+                    sleep 20
                     curl 192.168.49.2:30115
                 '''
             }
@@ -152,6 +165,9 @@ pipeline {
 
                 echo "===== Kubernetes Services ====="
                 kubectl get svc || true
+
+                echo "===== Kubernetes Deployments ====="
+                kubectl get deployments || true
             '''
         }
         success {
