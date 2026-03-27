@@ -29,7 +29,7 @@ git branch: 'main',
         stage('DockerContainer Creation') {
             steps {
                 echo "Running Docker compose here..."
-                sh "docker compose up -d"
+                sh "docker-compose up -d"
             }
         }
 
