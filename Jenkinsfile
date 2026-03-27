@@ -7,6 +7,7 @@ pipeline {
 
     environment {
         IMAGE_NAME   = 'pythonapp:v1'
+        ECR_REGISTRY = '820242921378.dkr.ecr.us-east-1.amazonaws.com'
         ECR_REPO     = '820242921378.dkr.ecr.us-east-1.amazonaws.com/pythonapp:v1'
         AWS_REGION   = 'us-east-1'
     }
@@ -22,9 +23,11 @@ pipeline {
 
         stage('Check Docker CLI') {
             steps {
-                sh 'sudo docker --version'
-                sh 'sudo docker ps -a || true'
-                sh 'docker-compose --version'
+                sh '''
+                    sudo docker --version
+                    sudo docker ps -a || true
+                    docker-compose --version
+                '''
             }
         }
 
@@ -40,35 +43,45 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo 'Docker build running'
-                sh 'sudo docker build -t $IMAGE_NAME .'
+                sh '''
+                    sudo docker build -t ${IMAGE_NAME} .
+                '''
             }
         }
 
         stage('Docker Container Creation') {
             steps {
                 echo 'Running docker-compose here...'
-                sh 'docker-compose up -d'
+                sh '''
+                    docker-compose up -d
+                '''
             }
         }
 
         stage('Checking Output') {
             steps {
-                sh 'sudo docker ps'
-                sh 'docker-compose ps'
+                sh '''
+                    sudo docker ps
+                    docker-compose ps
+                '''
             }
         }
 
         stage('App Working') {
             steps {
-                sh 'curl localhost:9010'
+                sh '''
+                    curl localhost:9010
+                '''
             }
         }
 
         stage('Image Push') {
             steps {
-                sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 820242921378.dkr.ecr.us-east-1.amazonaws.com'
-                sh 'docker tag $IMAGE_NAME $ECR_REPO'
-                sh 'docker push $ECR_REPO'
+                sh '''
+                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    docker tag ${IMAGE_NAME} ${ECR_REPO}
+                    docker push ${ECR_REPO}
+                '''
             }
         }
 
@@ -84,31 +97,57 @@ pipeline {
         stage('Deploy kube files') {
             steps {
                 sh '''
+                    echo "Current workspace:"
                     pwd
+                    echo "Workspace files:"
                     ls -la
-                    ls -la py-redis-configmap || true
+                    echo "k8s folder contents:"
+                    ls -la k8s
 
-                    kubectl apply -f py-redis-configmap/configmap.yaml
-                    kubectl apply -f redis-deploy.yaml
-                    kubectl apply -f redis-service.yaml
-                    kubectl apply -f py-deploy.yaml
-                    kubectl apply -f py-service.yaml
+                    test -f k8s/configmap.yaml
+                    test -f k8s/redis-deploy.yaml
+                    test -f k8s/redis-service.yaml
+                    test -f k8s/py-deploy.yaml
+                    test -f k8s/py-service.yaml
+
+                    kubectl apply -f k8s/configmap.yaml
+                    kubectl apply -f k8s/redis-deploy.yaml
+                    kubectl apply -f k8s/redis-service.yaml
+                    kubectl apply -f k8s/py-deploy.yaml
+                    kubectl apply -f k8s/py-service.yaml
                 '''
             }
         }
 
         stage('App testing on kube env') {
             steps {
-                sh 'curl 192.168.49.2:30115'
+                sh '''
+                    kubectl get pods -o wide
+                    kubectl get svc
+                    curl 192.168.49.2:30115
+                '''
             }
         }
     }
 
     post {
         always {
-            sh 'sudo docker ps -a || true'
-            sh 'kubectl get pods -o wide || true'
-            sh 'kubectl get svc || true'
+            sh '''
+                echo "===== Docker Containers ====="
+                sudo docker ps -a || true
+
+                echo "===== Kubernetes Pods ====="
+                kubectl get pods -o wide || true
+
+                echo "===== Kubernetes Services ====="
+                kubectl get svc || true
+            '''
+        }
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Check the logs above for the exact stage and error.'
         }
     }
 }
