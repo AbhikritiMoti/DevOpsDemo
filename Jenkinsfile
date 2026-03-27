@@ -1,97 +1,65 @@
 pipeline {
-  agent {label 'docker'}
-
-  triggers {
-    pollSCM('H/2 * * * *')
-  }
-
-  environment {
-    IMAGE_NAME = "vishwacloudlab/py-feb26"
-    Host_IP = "172.31.14.184"
-    Host_Port = "30110"
-    hub_cred = "vishwa-dockerhub-creds"
-    app_path = "python-sample-code"
-  }
-
-  stages {
-
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    agent { label 'docker' }
+    triggers {
+        pollSCM('H/2 * * * *')   // every 2 minutes
     }
-
-    stage('Check the docker cli') {
-      steps {
-        sh "docker --version"
-        sh "docker ps -a"
-      }
-    }
-    stage('Build Docker Image') {
-      steps {
-        sh '''
-          docker build -t ${IMAGE_NAME}:$BUILD_NUMBER ${app_path}
-        '''
-      }
-    }
-    stage('Trivy Image Scan') {
-      steps {
-        sh '''
-          trivy image \
-            --severity HIGH,CRITICAL \
-            --no-progress \
-            ${IMAGE_NAME}:$BUILD_NUMBER
-        '''
-      }
-    }
-    stage('Push Docker Image') {
-        steps {
-            withCredentials([
-            usernamePassword(
-                credentialsId: "${hub_cred}",
-                usernameVariable: 'DOCKERHUB_USER',
-                passwordVariable: 'DOCKERHUB_PASS'
-            )
-            ]) {
-            sh '''
-                echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-                docker push ${IMAGE_NAME}:$BUILD_NUMBER
-                docker logout
-            '''
+ 
+    stages {
+        stage('Clone Repository') {
+            steps {
+                    git branch: 'main',
+                    url: 'git@github.com:ManjuSKM/devOpsonAWSTraining.git',
+                    credentialsId: 'github-creds'
             }
         }
-    }
-
-    stage('Deploy - Template and Apply') {
-        steps {
-            sh '''
-            export IMAGE_TAG=$BUILD_NUMBER
-            envsubst < py-deploy.yaml | kubectl apply -f -
-            kubectl rollout status deployment/py-deploy
-            '''
+ 
+        stage('Check the docker cli') {
+            steps {
+                sh "sudo docker --version"
+                sh "sudo docker ps -a"
+                sh "docker-compose --version"
+            }
         }
-    }
-
-    stage('Check on Kubernetes') {
-      steps {
-        sh '''
-
-          kubectl get pods
-          kubectl get svc
-          kubectl get deployments
-          
-        '''
-      }
-    }
-
-    stage('Application Health Check') {
-      steps {
-        sh '''
-          sleep 10
-          curl http://${Host_IP}:${Host_Port}
-        '''
-      }
-    }
+        stage('Docker build') {
+            steps {
+                echo "Docker build running"
+                sh "sudo docker build . -t pythonapp:v1"
+            }
+        }
+ 
+        stage('Docker Container Cerateion') {
+            steps {
+                echo "Running docker-compose here..."
+                sh "docker-compose up -d"
+            }
+        }
+ 
+        stage('Cheking output') {
+            steps {
+               sh "sudo docker ps"
+                sh "docker-compose ps"
+            }
+        }
+        // stage('Hosting Nginx FrontEnd') {
+        //     steps {
+        //        sh "sudo yum install nginx -y"
+        //        sh "sudo systemctl start nginx" 
+        //     }
+        // }
+ 
+        stage('app working') {
+            steps {
+               sh "curl localhost:9010"
+            }
+        }
+        stage('Image push') {
+            steps {
+               sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 820242921378.dkr.ecr.us-east-1.amazonaws.com"
+               sh "docker tag pythonapp:v1 820242921378.dkr.ecr.us-east-1.amazonaws.com/pythonapp:v1"
+                sh "docker push 820242921378.dkr.ecr.us-east-1.amazonaws.com/pythonapp:v1"
+            }
+        }
+ 
      stage('Check kube env') {
             steps {
                 sh """
@@ -107,12 +75,11 @@ pipeline {
                 """
             }
         }
-
+ 
         stage('App testing on kube env') {
             steps {
                sh "curl 192.168.49.2:30115"
             }
         }
-
-  }
+    }
 }
