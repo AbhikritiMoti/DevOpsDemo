@@ -3,9 +3,9 @@ kind: Service
 metadata:
   name: redis-service-cm
 spec:
-  type: ClusterIP
   selector:
-    app: redis-app-cm
+    app: redis-cm
   ports:
-    - port: 6379
+    - protocol: TCP
+      port: 6379
       targetPort: 6379
