@@ -9,7 +9,7 @@ pipeline {
             steps {
                     git branch: 'main',
                     url: 'git@github.com:ManjuSKM/devOpsonAWSTraining.git',
-                    credentialsId: 'github-creds'
+                    credentialsId: 'github-ssh'
             }
         }
  
