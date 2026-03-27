@@ -2,9 +2,11 @@ version: '3'
 
 services:
   web:
-    image: pythonapp:v1
-    build: .
+    image: ${IMAGE_NAME}
     ports:
       - "9010:8000"
+    depends_on:
+      - redis
+
   redis:
     image: redis:alpine
