@@ -87,7 +87,12 @@ pipeline {
             docker-compose down || true
             sudo docker rm -f git-pp02_web_1 git-pp02_redis_1 git-pp022_web_1 git-pp022_redis_1 || true
         '''
-    }
-}
+            }
+        }
+        stage('Docker Container Creation') {
+        steps {
+            sh 'docker-compose up -d'
+            }
+        }
     }
 }
