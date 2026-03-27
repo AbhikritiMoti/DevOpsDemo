@@ -6,9 +6,14 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME   = 'pythonapp:v1'
+        IMAGE_NAME   = 'pythonapp'
+        TAG          = "${BUILD_NUMBER}"
+        LOCAL_IMAGE  = "${IMAGE_NAME}:${TAG}"
+
         ECR_REGISTRY = '820242921378.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPO     = '820242921378.dkr.ecr.us-east-1.amazonaws.com/pythonapp:v1'
+        ECR_REPO     = 'pythonapp'
+        FULL_IMAGE   = "${ECR_REGISTRY}/${ECR_REPO}:${TAG}"
+
         AWS_REGION   = 'us-east-1'
     }
 
@@ -18,6 +23,16 @@ pipeline {
                 git branch: 'main',
                     url: 'git@github.com:AbhikritiMoti/DevOpsDemo.git',
                     credentialsId: 'github-ssh'
+            }
+        }
+
+        stage('Show Build Info') {
+            steps {
+                sh '''
+                    echo "BUILD_NUMBER=${BUILD_NUMBER}"
+                    echo "LOCAL_IMAGE=${LOCAL_IMAGE}"
+                    echo "FULL_IMAGE=${FULL_IMAGE}"
+                '''
             }
         }
 
@@ -42,17 +57,17 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo 'Docker build running'
                 sh '''
-                    sudo docker build -t ${IMAGE_NAME} .
+                    sudo docker build -t ${LOCAL_IMAGE} .
+                    sudo docker tag ${LOCAL_IMAGE} ${FULL_IMAGE}
                 '''
             }
         }
 
         stage('Docker Container Creation') {
             steps {
-                echo 'Running docker-compose here...'
                 sh '''
+                    export IMAGE_NAME=${LOCAL_IMAGE}
                     docker-compose up -d
                 '''
             }
@@ -79,8 +94,7 @@ pipeline {
             steps {
                 sh '''
                     aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                    docker tag ${IMAGE_NAME} ${ECR_REPO}
-                    docker push ${ECR_REPO}
+                    docker push ${FULL_IMAGE}
                 '''
             }
         }
@@ -97,11 +111,8 @@ pipeline {
         stage('Deploy kube files') {
             steps {
                 sh '''
-                    echo "Current workspace:"
                     pwd
-                    echo "Workspace files:"
                     ls -la
-                    echo "k8s folder contents:"
                     ls -la k8s
 
                     test -f k8s/configmap.yaml
@@ -110,10 +121,10 @@ pipeline {
                     test -f k8s/py-deploy.yaml
                     test -f k8s/py-service.yaml
 
+                    sed "s|__IMAGE__|${FULL_IMAGE}|g" k8s/py-deploy.yaml | kubectl apply -f -
                     kubectl apply -f k8s/configmap.yaml
                     kubectl apply -f k8s/redis-deploy.yaml
                     kubectl apply -f k8s/redis-service.yaml
-                    kubectl apply -f k8s/py-deploy.yaml
                     kubectl apply -f k8s/py-service.yaml
                 '''
             }
